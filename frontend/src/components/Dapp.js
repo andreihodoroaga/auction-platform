@@ -14,7 +14,7 @@ import tokenAddress from "../contracts/Token-address.json";
 import { NoWalletDetected } from "./NoWalletDetected";
 import { ConnectWallet } from "./ConnectWallet";
 import { Loading } from "./Loading";
-
+import AuctionComponent, {ActionComponent} from "./AuctionComponent"
 // This is the default id used by the Hardhat Network
 const HARDHAT_NETWORK_ID = '31337';
 
@@ -98,8 +98,7 @@ export class Dapp extends React.Component {
         </div>
 
         <hr />
-
-        
+        <AuctionComponent/>
       </div>
     );
   }
