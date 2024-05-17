@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Container,
   Typography,
   Button,
-  Card,
-  CardContent,
-  CardActions,
   Table,
   TableBody,
   TableCell,
@@ -18,47 +15,99 @@ import {
   DialogContentText,
   DialogTitle,
   TextField,
-  Paper
-} from '@mui/material';
+  Paper,
+} from "@mui/material";
+
+import { ethers } from "ethers";
+import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
+import auctionHouseAddress from "../contracts/AuctionHouse-address.json";
 
 const AuctionComponent = () => {
-  // Hardcoded initial auctions
-  const initialAuctions = [
-    { name: 'Auction 1', bidAmount: 100, endDate: '2024-06-01 12:00:00' },
-    { name: 'Auction 2', bidAmount: 150, endDate: '2024-06-02 12:00:00' },
-    { name: 'Auction 3', bidAmount: 200, endDate: '2024-06-03 12:00:00' },
-  ];
-
-  const [auctions, setAuctions] = useState(initialAuctions);
-  const [newAuctionName, setNewAuctionName] = useState('');
-  const [newAuctionEndDate, setNewAuctionEndDate] = useState('');
-  const [bidAmount, setBidAmount] = useState('');
+  const [auctions, setAuctions] = useState([]);
+  const [newAuctionName, setNewAuctionName] = useState("");
+  const [newAuctionEndDate, setNewAuctionEndDate] = useState("");
+  const [bidAmount, setBidAmount] = useState("");
   const [openNewAuctionModal, setOpenNewAuctionModal] = useState(false);
   const [openBidModal, setOpenBidModal] = useState(false);
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(null);
 
-  const handleAddAuction = () => {
-    setAuctions([...auctions, { name: newAuctionName, bidAmount: 0, endDate: newAuctionEndDate }]);
-    setNewAuctionName('');
-    setNewAuctionEndDate('');
-    setOpenNewAuctionModal(false);
-  };
+  useEffect(() => {
+    const fetchAllAuctions = async () => {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
 
+      try {
+        const auctions = await auctionHouse.getAllAuctions();
+        const auctionDetails = auctions[0].map((_, index) => ({
+          owner: auctions[0][index],
+          name: auctions[1][index],
+          endTime: new Date(auctions[2][index] * 1000), // Convert UNIX timestamp to date
+          highestBid: ethers.utils.formatEther(auctions[3][index]), // Convert wei to ether
+          highestBidder: auctions[4][index],
+          ended: auctions[5][index],
+        }));
+        setAuctions(auctionDetails);
+      } catch (error) {
+        console.error("Error fetching auctions:", error);
+      }
+    };
+
+    fetchAllAuctions();
+  }, []);
+
+  const handleAddAuction = async () => {
+    if (!newAuctionName || !newAuctionEndDate) {
+      console.error("Auction name and end date are required");
+      return;
+    }
+
+    const endDateTimestamp = Math.floor(new Date(newAuctionEndDate).getTime() / 1000);
+
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
+
+      const tx = await auctionHouse.createAuction(newAuctionName, endDateTimestamp);
+      await tx.wait();
+
+      const auctions = await auctionHouse.getAllAuctions();
+      const auctionDetails = auctions[0].map((_, index) => ({
+        owner: auctions[0][index],
+        name: auctions[1][index],
+        endTime: new Date(auctions[2][index] * 1000), // Convert UNIX timestamp to date
+        highestBid: ethers.utils.formatEther(auctions[3][index]), // Convert wei to ether
+        highestBidder: auctions[4][index],
+        ended: auctions[5][index],
+      }));
+
+      setAuctions(auctionDetails);
+
+      setNewAuctionName("");
+      setNewAuctionEndDate("");
+      setOpenNewAuctionModal(false);
+
+      console.log("Auction created successfully!");
+    } catch (error) {
+      console.error("Error creating auction:", error);
+    }
+  };
   const handleBid = () => {
     const updatedAuctions = auctions.map((auction, i) =>
       i === currentAuctionIndex ? { ...auction, bidAmount: parseFloat(bidAmount) } : auction
     );
     setAuctions(updatedAuctions);
-    setBidAmount('');
+    setBidAmount("");
     setOpenBidModal(false);
   };
 
-  const handleOpenBidModal = (index) => {
+  const handleOpenBidModal = index => {
     setCurrentAuctionIndex(index);
     setOpenBidModal(true);
   };
 
-  const handleBidAmountChange = (e) => {
+  const handleBidAmountChange = e => {
     const value = e.target.value;
     setBidAmount(value);
   };
@@ -73,14 +122,10 @@ const AuctionComponent = () => {
       <Typography variant="h4" gutterBottom>
         Auctions
       </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => setOpenNewAuctionModal(true)}
-      >
+      <Button variant="contained" color="primary" onClick={() => setOpenNewAuctionModal(true)}>
         Create New Auction
       </Button>
-      <TableContainer component={Paper} style={{ marginTop: '20px' }}>
+      <TableContainer component={Paper} style={{ marginTop: "20px" }}>
         <Table>
           <TableHead>
             <TableRow>
@@ -97,11 +142,7 @@ const AuctionComponent = () => {
                 <TableCell>${auction.bidAmount}</TableCell>
                 <TableCell>{auction.endDate}</TableCell>
                 <TableCell>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    onClick={() => handleOpenBidModal(index)}
-                  >
+                  <Button variant="contained" color="success" onClick={() => handleOpenBidModal(index)}>
                     Bid
                   </Button>
                 </TableCell>
@@ -111,13 +152,10 @@ const AuctionComponent = () => {
         </Table>
       </TableContainer>
 
-      {/* New Auction Modal */}
       <Dialog open={openNewAuctionModal} onClose={() => setOpenNewAuctionModal(false)}>
         <DialogTitle>Create New Auction</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Please enter the auction details.
-          </DialogContentText>
+          <DialogContentText>Please enter the auction details.</DialogContentText>
           <TextField
             autoFocus
             margin="dense"
@@ -125,7 +163,7 @@ const AuctionComponent = () => {
             type="text"
             fullWidth
             value={newAuctionName}
-            onChange={(e) => setNewAuctionName(e.target.value)}
+            onChange={e => setNewAuctionName(e.target.value)}
           />
           <TextField
             margin="dense"
@@ -134,7 +172,7 @@ const AuctionComponent = () => {
             fullWidth
             InputLabelProps={{ shrink: true }}
             value={newAuctionEndDate}
-            onChange={(e) => setNewAuctionEndDate(e.target.value)}
+            onChange={e => setNewAuctionEndDate(e.target.value)}
           />
         </DialogContent>
         <DialogActions>
@@ -151,18 +189,8 @@ const AuctionComponent = () => {
       <Dialog open={openBidModal} onClose={() => setOpenBidModal(false)}>
         <DialogTitle>Place a Bid</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Please enter your bid amount. It must be greater than the current bid.
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Bid Amount"
-            type="text"
-            fullWidth
-            value={bidAmount}
-            onChange={handleBidAmountChange}
-          />
+          <DialogContentText>Please enter your bid amount. It must be greater than the current bid.</DialogContentText>
+          <TextField autoFocus margin="dense" label="Bid Amount" type="text" fullWidth value={bidAmount} onChange={handleBidAmountChange} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenBidModal(false)} color="primary">

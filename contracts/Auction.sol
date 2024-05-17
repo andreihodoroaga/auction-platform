@@ -7,15 +7,20 @@ contract Auction {
     address public highestBidder;
     bool public ended;
 
+    string public name;
+    uint public endTime;
+
     event HighestBidIncreased(address bidder, uint amount);
     event AuctionEnded(address winner, uint amount);
 
-    constructor() {
+    constructor(string memory _name, uint _endTime) {
         owner = msg.sender;
+        name = _name;
+        endTime = _endTime;
     }
 
     function bid() public payable {
-        require(!ended, "Auction already ended.");
+        require(block.timestamp < endTime, "Auction already ended.");
         require(msg.value > highestBid, "There already is a higher bid.");
 
         if (highestBid != 0) {
@@ -29,11 +34,14 @@ contract Auction {
 
     function endAuction() public {
         require(msg.sender == owner, "You are not the auction owner.");
+        require(block.timestamp >= endTime, "Auction not yet ended.");
         require(!ended, "Auction already ended.");
 
         ended = true;
         emit AuctionEnded(highestBidder, highestBid);
 
-        payable(owner).transfer(highestBid);
+        if (highestBid != 0) {
+            payable(owner).transfer(highestBid);
+        }
     }
 }
