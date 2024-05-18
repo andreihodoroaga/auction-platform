@@ -21,9 +21,14 @@ import {
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
 import auctionHouseAddress from "../contracts/AuctionHouse-address.json";
-import AuctionArtifact from '../contracts/Auction.json';
-import auctionAddress from '../contracts/Auction-address.json'
 
+const toUnixTimestamp = date => new Date(date).getTime() / 1000;
+
+const getAuctionHouseContract = () => {
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const signer = provider.getSigner();
+  return new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
+};
 
 const AuctionComponent = () => {
   const [auctions, setAuctions] = useState([]);
@@ -33,9 +38,31 @@ const AuctionComponent = () => {
   const [openNewAuctionModal, setOpenNewAuctionModal] = useState(false);
   const [openBidModal, setOpenBidModal] = useState(false);
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(null);
+  const [isEndingAuction, setIsEndingAuction] = useState(false);
+
+  useEffect(() => {
+    const checkExpiredAuctions = async () => {
+      if (isEndingAuction) {
+        return;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const expiredAuctions = auctions.filter(auction => toUnixTimestamp(auction.endTime) < now);
+
+      if (expiredAuctions.length > 0) {
+        console.log("transaction ended");
+        setIsEndingAuction(true);
+        const auctionHouse = getAuctionHouseContract();
+        await auctionHouse.endExpiredAuctions();
+      }
+    };
+
+    const id = setInterval(checkExpiredAuctions, 1000);
+
+    return () => clearInterval(id);
+  }, [auctions, isEndingAuction]);
   const [isDateInvalid, setIsDateInvalid] = useState(false);
   const [isBidInvalid, setIsBidInvalid] = useState(false);
-
 
   useEffect(() => {
     const selectedDate = new Date(newAuctionEndDate);
@@ -47,28 +74,24 @@ const AuctionComponent = () => {
         setIsDateInvalid(true);
       }
     }
-  }, [newAuctionEndDate])
-
+  }, [newAuctionEndDate]);
 
   useEffect(() => {
     const currentBidAmount = auctions[currentAuctionIndex]?.highestBid;
 
     if (bidAmount != "") {
       if (bidAmount > currentBidAmount) {
-        setIsBidInvalid(false)
+        setIsBidInvalid(false);
       } else {
-        setIsBidInvalid(true)
+        setIsBidInvalid(true);
       }
     }
-  }, [bidAmount])
+  }, [bidAmount]);
 
   useEffect(() => {
     const fetchAllAuctions = async () => {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
-
       try {
+        const auctionHouse = getAuctionHouseContract();
         const auctions = await auctionHouse.getAllAuctions();
         const auctionDetails = auctions[0].map((_, index) => ({
           owner: auctions[0][index],
@@ -96,9 +119,7 @@ const AuctionComponent = () => {
     const endDateTimestamp = Math.floor(new Date(newAuctionEndDate).getTime() / 1000);
 
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
+      const auctionHouse = getAuctionHouseContract();
 
       const tx = await auctionHouse.createAuction(newAuctionName, endDateTimestamp);
       await tx.wait();
@@ -130,7 +151,6 @@ const AuctionComponent = () => {
   //     const signer = provider.getSigner();
   //     const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
 
-
   //     const auction = new ethers.Contract(auctionAddress.address, AuctionArtifact.abi, signer);
   //     const updatedAuctions = auctions.map((auction, i) =>
   //       i === currentAuctionIndex ? { ...auction, highestBid: parseFloat(bidAmount) } : auction
@@ -155,24 +175,22 @@ const AuctionComponent = () => {
     setBidAmount(value);
   };
 
-
-
-  const reformatDate = (dateString) => {
+  const reformatDate = dateString => {
     const date = new Date(dateString);
 
     const dateOptions = {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     };
 
     const timeOptions = {
-      hour: '2-digit',
-      minute: '2-digit'
+      hour: "2-digit",
+      minute: "2-digit",
     };
 
-    const formattedDate = date.toLocaleDateString('en-US', dateOptions);
-    const formattedTime = date.toLocaleTimeString('en-US', timeOptions);
+    const formattedDate = date.toLocaleDateString("en-US", dateOptions);
+    const formattedTime = date.toLocaleTimeString("en-US", timeOptions);
 
     return `${formattedDate} ${formattedTime}`;
   };
@@ -240,7 +258,11 @@ const AuctionComponent = () => {
           <Button onClick={() => setOpenNewAuctionModal(false)} color="primary">
             Cancel
           </Button>
-          <Button onClick={handleAddAuction} color="primary" disabled={!newAuctionName.trim() || !newAuctionEndDate.trim() || isDateInvalid}>
+          <Button
+            onClick={handleAddAuction}
+            color="primary"
+            disabled={!newAuctionName.trim() || !newAuctionEndDate.trim() || isDateInvalid}
+          >
             Create
           </Button>
         </DialogActions>

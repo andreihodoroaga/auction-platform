@@ -8,7 +8,7 @@ contract AuctionHouse {
 
     event AuctionCreated(uint auctionId, address owner, string name, uint endTime);
 
-    function createAuction(string memory name, uint endTime) public {
+    function createAuction(string memory name, uint endTime) external {
         require(endTime > block.timestamp, "End time must be in the future");
 
         Auction newAuction = new Auction(name, endTime);
@@ -17,7 +17,7 @@ contract AuctionHouse {
         emit AuctionCreated(auctions.length - 1, msg.sender, name, endTime);
     }
 
-    function getAuction(uint auctionId) public view returns (
+    function getAuction(uint auctionId) external view returns (
         address owner,
         string memory name,
         uint endTime,
@@ -26,21 +26,14 @@ contract AuctionHouse {
         bool ended
     ) {
         Auction auction = auctions[auctionId];
-        return (
-            auction.owner(),
-            auction.name(),
-            auction.endTime(),
-            auction.highestBid(),
-            auction.highestBidder(),
-            auction.ended()
-        );
+        return _getAuctionDetails(auction);
     }
 
-    function getAuctionCount() public view returns (uint) {
+    function getAuctionCount() external view returns (uint) {
         return auctions.length;
     }
 
-    function getAllAuctions() public view returns (
+    function getAllAuctions() external view returns (
         address[] memory owners,
         string[] memory names,
         uint[] memory endTimes,
@@ -58,15 +51,43 @@ contract AuctionHouse {
         bool[] memory _endeds = new bool[](count);
 
         for (uint i = 0; i < count; i++) {
-            Auction auction = auctions[i];
-            _owners[i] = auction.owner();
-            _names[i] = auction.name();
-            _endTimes[i] = auction.endTime();
-            _highestBids[i] = auction.highestBid();
-            _highestBidders[i] = auction.highestBidder();
-            _endeds[i] = auction.ended();
+            (
+                _owners[i],
+                _names[i],
+                _endTimes[i],
+                _highestBids[i],
+                _highestBidders[i],
+                _endeds[i]
+            ) = _getAuctionDetails(auctions[i]);
         }
 
         return (_owners, _names, _endTimes, _highestBids, _highestBidders, _endeds);
+    }
+
+    function endExpiredAuctions() public {
+        for (uint i = 0; i < auctions.length; i++) {
+            Auction auction = auctions[i];
+            if (block.timestamp >= auction.endTime() && !auction.ended()) {
+                auction.endAuction();
+            }
+        }
+    }
+
+    function _getAuctionDetails(Auction auction) internal view returns (
+        address _owner,
+        string memory _name,
+        uint _endTime,
+        uint _highestBid,
+        address _highestBidder,
+        bool _ended
+    ) {
+        return (
+            auction.owner(),
+            auction.name(),
+            auction.endTime(),
+            auction.highestBid(),
+            auction.highestBidder(),
+            auction.ended()
+        );
     }
 }
