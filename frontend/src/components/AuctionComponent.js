@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Container, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from "@mui/material";
+import { Container, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, cardActionAreaClasses } from "@mui/material";
 
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
@@ -49,6 +49,7 @@ const AuctionComponent = () => {
   const [isEndingAuction, setIsEndingAuction] = useState(false);
   const [isDateInvalid, setIsDateInvalid] = useState(false);
   const [isBidInvalid, setIsBidInvalid] = useState(false);
+  const [createAuctionGasEstimate, setCreateAuctionGasEstimate] = useState("")
 
   useEffect(() => {
     const checkExpiredAuctions = async () => {
@@ -138,6 +139,18 @@ const AuctionComponent = () => {
     setExpiredAuctions(auctions.filter(auction => auction.ended));
   };
 
+  useEffect(() => {
+    const estimateGas = async () => {
+      const auctionHouse = getAuctionHouseContract();
+      if (newAuctionEndDate !== "" && newAuctionName !== "") {
+        const endDateTimestamp = Math.floor(new Date(newAuctionEndDate).getTime() / 1000);
+        const gasEstimate = await auctionHouse.estimateGas.createAuction(newAuctionName, endDateTimestamp);
+        setCreateAuctionGasEstimate(ethers.utils.parseEther(gasEstimate.toString()).toString());
+      }
+    }
+    estimateGas().catch(console.error);
+  }, [newAuctionEndDate, newAuctionName])
+  //  console.log(createAuctionGasEstimate)
   const handleAddAuction = async () => {
     if (!newAuctionName || !newAuctionEndDate) {
       console.error("Auction name and end date are required");
@@ -145,7 +158,8 @@ const AuctionComponent = () => {
     }
 
     const endDateTimestamp = Math.floor(new Date(newAuctionEndDate).getTime() / 1000);
-
+    setOpenNewAuctionModal(false);
+    setCreateAuctionGasEstimate("");
     try {
       const auctionHouse = getAuctionHouseContract();
 
@@ -157,7 +171,6 @@ const AuctionComponent = () => {
 
       setNewAuctionName("");
       setNewAuctionEndDate("");
-      setOpenNewAuctionModal(false);
 
       console.log("Auction created successfully!");
     } catch (error) {
@@ -230,6 +243,8 @@ const AuctionComponent = () => {
             error={isDateInvalid}
             helperText={isDateInvalid ? "End Date should be in the future" : ""}
           />
+          {createAuctionGasEstimate !== '' &&
+            <div>Estimated gas: {createAuctionGasEstimate.slice(0, 10)}</div>}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenNewAuctionModal(false)} color="primary">
