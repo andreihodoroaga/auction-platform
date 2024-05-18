@@ -67,7 +67,7 @@ const AuctionComponent = () => {
   useEffect(() => {
     const selectedDate = new Date(newAuctionEndDate);
     const currentDate = new Date();
-    if (newAuctionEndDate != "") {
+    if (newAuctionEndDate !== "") {
       if (selectedDate.getTime() > currentDate.getTime()) {
         setIsDateInvalid(false);
       } else {
@@ -79,13 +79,14 @@ const AuctionComponent = () => {
   useEffect(() => {
     const currentBidAmount = auctions[currentAuctionIndex]?.highestBid;
 
-    if (bidAmount != "") {
+    if (bidAmount !== "") {
       if (bidAmount > currentBidAmount) {
         setIsBidInvalid(false);
       } else {
         setIsBidInvalid(true);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bidAmount]);
 
   useEffect(() => {
@@ -145,25 +146,24 @@ const AuctionComponent = () => {
       console.error("Error creating auction:", error);
     }
   };
-  // const handleBid = async () => {
-  //   try {
-  //     const provider = new ethers.providers.Web3Provider(window.ethereum);
-  //     const signer = provider.getSigner();
-  //     const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
-
-  //     const auction = new ethers.Contract(auctionAddress.address, AuctionArtifact.abi, signer);
-  //     const updatedAuctions = auctions.map((auction, i) =>
-  //       i === currentAuctionIndex ? { ...auction, highestBid: parseFloat(bidAmount) } : auction
-  //     );
-  //     setAuctions(updatedAuctions);
-  //     auction.bid();
-  //     setBidAmount("");
-  //     setOpenBidModal(false);
-  //     console.log("Bid created successfully!");
-  //   } catch (error) {
-  //     console.error("Error creating bid:", error);
-  //   }
-  // };
+  const handleBid = async () => {
+    // try {
+    //   const provider = new ethers.providers.Web3Provider(window.ethereum);
+    //   const signer = provider.getSigner();
+    //   const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
+    //   const auction = new ethers.Contract(auctionAddress.address, AuctionArtifact.abi, signer);
+    //   const updatedAuctions = auctions.map((auction, i) =>
+    //     i === currentAuctionIndex ? { ...auction, highestBid: parseFloat(bidAmount) } : auction
+    //   );
+    //   setAuctions(updatedAuctions);
+    //   auction.bid();
+    //   setBidAmount("");
+    //   setOpenBidModal(false);
+    //   console.log("Bid created successfully!");
+    // } catch (error) {
+    //   console.error("Error creating bid:", error);
+    // }
+  };
 
   const handleOpenBidModal = index => {
     setCurrentAuctionIndex(index);
