@@ -1,23 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Container,
-  Typography,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  TextField,
-  Paper,
-} from "@mui/material";
-
+import { Container, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from "@mui/material";
 
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
@@ -61,7 +43,7 @@ const AuctionComponent = () => {
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(null);
   const [isEndingAuction, setIsEndingAuction] = useState(false);
   const [isDateInvalid, setIsDateInvalid] = useState(false);
-  const [isBidInvalid, setIsBidInvalid] = useState(false)
+  const [isBidInvalid, setIsBidInvalid] = useState(false);
 
   useEffect(() => {
     const checkExpiredAuctions = async () => {
@@ -209,22 +191,15 @@ const AuctionComponent = () => {
     const value = e.target.value;
     setBidAmount(value);
   };
-  console.log(liveAuctions)
+
   return (
     <Container>
       <Button variant="contained" color="primary" onClick={() => setOpenNewAuctionModal(true)}>
         Create New Auction
       </Button>
 
-      <AuctionTable
-        auctions={liveAuctions}
-        expired={false}
-        openModal={handleOpenBidModal}
-      />
-      <AuctionTable
-        auctions={expiredAuctions}
-        expired={true}
-      />
+      <AuctionTable auctions={liveAuctions} expired={false} openModal={handleOpenBidModal} />
+      <AuctionTable auctions={expiredAuctions} expired={true} />
       <Dialog open={openNewAuctionModal} onClose={() => setOpenNewAuctionModal(false)}>
         <DialogTitle>Create New Auction</DialogTitle>
         <DialogContent>
