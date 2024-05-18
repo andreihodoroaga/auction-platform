@@ -32,6 +32,12 @@ const getAuctions = async () => {
   return getAuctionsDetails(auctionsFromContract);
 };
 
+const getAuctionContract = (auctionAddress, requiresSigner = false) => {
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const providerOrSigner = requiresSigner ? provider.getSigner() : provider;
+  return new ethers.Contract(auctionAddress, AuctionArtifact.abi, providerOrSigner);
+};
+
 const AuctionComponent = () => {
   const [liveAuctions, setLiveAuctions] = useState([]);
   const [expiredAuctions, setExpiredAuctions] = useState([]);
@@ -39,8 +45,7 @@ const AuctionComponent = () => {
   const [newAuctionEndDate, setNewAuctionEndDate] = useState("");
   const [bidAmount, setBidAmount] = useState("");
   const [openNewAuctionModal, setOpenNewAuctionModal] = useState(false);
-  const [openBidModal, setOpenBidModal] = useState(false);
-  const [currentAuctionIndex, setCurrentAuctionIndex] = useState(null);
+  const [openBidModal, setOpenBidModal] = useState(null); // auction or null
   const [isEndingAuction, setIsEndingAuction] = useState(false);
   const [isDateInvalid, setIsDateInvalid] = useState(false);
   const [isBidInvalid, setIsBidInvalid] = useState(false);
@@ -83,10 +88,10 @@ const AuctionComponent = () => {
   }, [newAuctionEndDate]);
 
   useEffect(() => {
-    const currentBidAmount = liveAuctions[currentAuctionIndex]?.highestBid;
+    const currentBidAmount = openBidModal?.highestBid;
 
     if (bidAmount !== "") {
-      if (bidAmount > currentBidAmount) {
+      if (ethers.utils.parseEther(bidAmount).gt(ethers.utils.parseEther(currentBidAmount))) {
         setIsBidInvalid(false);
       } else {
         setIsBidInvalid(true);
@@ -115,11 +120,7 @@ const AuctionComponent = () => {
       const auctions = await auctionHouse.getAllAuctions();
 
       auctions[0].forEach(async auctionAddress => {
-        const auctionContract = new ethers.Contract(
-          auctionAddress,
-          AuctionArtifact.abi,
-          new ethers.providers.Web3Provider(window.ethereum)
-        );
+        const auctionContract = getAuctionContract(auctionAddress);
 
         auctionContract.on("AuctionEnded", (winner, amount) => {
           console.log("AuctionEnded event received for auction:", auctionAddress);
@@ -163,28 +164,32 @@ const AuctionComponent = () => {
       console.error("Error creating auction:", error);
     }
   };
+
   const handleBid = async () => {
-    // try {
-    //   const provider = new ethers.providers.Web3Provider(window.ethereum);
-    //   const signer = provider.getSigner();
-    //   const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
-    //   const auction = new ethers.Contract(auctionAddress.address, AuctionArtifact.abi, signer);
-    //   const updatedAuctions = auctions.map((auction, i) =>
-    //     i === currentAuctionIndex ? { ...auction, highestBid: parseFloat(bidAmount) } : auction
-    //   );
-    //   setAuctions(updatedAuctions);
-    //   auction.bid();
-    //   setBidAmount("");
-    //   setOpenBidModal(false);
-    //   console.log("Bid created successfully!");
-    // } catch (error) {
-    //   console.error("Error creating bid:", error);
-    // }
+    try {
+      const auctionContract = getAuctionContract(openBidModal.address, true);
+
+      const bidAmountInWei = ethers.utils.parseEther(bidAmount);
+
+      const tx = await auctionContract.bid({
+        value: bidAmountInWei,
+      });
+
+      await tx.wait();
+
+      const updatedAuctions = await getAuctions();
+      handleSetAuctions(updatedAuctions);
+
+      setBidAmount("");
+      setOpenBidModal(null);
+    } catch (error) {
+      console.error("Error creating bid:", error);
+    }
   };
 
-  const handleOpenBidModal = index => {
-    setCurrentAuctionIndex(index);
-    setOpenBidModal(true);
+  const handleOpenBidModal = auctionAddress => {
+    const auction = liveAuctions.find(auc => auc.address === auctionAddress);
+    setOpenBidModal(auction);
   };
 
   const handleBidAmountChange = e => {
@@ -200,6 +205,7 @@ const AuctionComponent = () => {
 
       <AuctionTable auctions={liveAuctions} expired={false} openModal={handleOpenBidModal} />
       <AuctionTable auctions={expiredAuctions} expired={true} />
+
       <Dialog open={openNewAuctionModal} onClose={() => setOpenNewAuctionModal(false)}>
         <DialogTitle>Create New Auction</DialogTitle>
         <DialogContent>
@@ -240,7 +246,7 @@ const AuctionComponent = () => {
       </Dialog>
 
       {/* Bid Modal */}
-      <Dialog open={openBidModal} onClose={() => setOpenBidModal(false)}>
+      <Dialog open={!!openBidModal} onClose={() => setOpenBidModal(null)}>
         <DialogContent>
           <DialogContentText></DialogContentText>
           <TextField
@@ -256,7 +262,7 @@ const AuctionComponent = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenBidModal(false)} color="primary">
+          <Button onClick={() => setOpenBidModal(null)} color="primary">
             Cancel
           </Button>
           <Button onClick={handleBid} color="primary" disabled={isBidInvalid}>
