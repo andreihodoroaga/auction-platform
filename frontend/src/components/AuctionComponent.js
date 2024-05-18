@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Container, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField, cardActionAreaClasses } from "@mui/material";
+import { Container, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from "@mui/material";
 
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
@@ -49,7 +49,7 @@ const AuctionComponent = () => {
   const [isEndingAuction, setIsEndingAuction] = useState(false);
   const [isDateInvalid, setIsDateInvalid] = useState(false);
   const [isBidInvalid, setIsBidInvalid] = useState(false);
-  const [createAuctionGasEstimate, setCreateAuctionGasEstimate] = useState("")
+  const [createAuctionGasEstimate, setCreateAuctionGasEstimate] = useState("");
 
   useEffect(() => {
     const checkExpiredAuctions = async () => {
@@ -145,11 +145,11 @@ const AuctionComponent = () => {
       if (newAuctionEndDate !== "" && newAuctionName !== "") {
         const endDateTimestamp = Math.floor(new Date(newAuctionEndDate).getTime() / 1000);
         const gasEstimate = await auctionHouse.estimateGas.createAuction(newAuctionName, endDateTimestamp);
-        setCreateAuctionGasEstimate(ethers.utils.parseEther(gasEstimate.toString()).toString());
+        setCreateAuctionGasEstimate(ethers.utils.formatEther(gasEstimate.toString()).toString());
       }
-    }
+    };
     estimateGas().catch(console.error);
-  }, [newAuctionEndDate, newAuctionName])
+  }, [newAuctionEndDate, newAuctionName]);
   //  console.log(createAuctionGasEstimate)
   const handleAddAuction = async () => {
     if (!newAuctionName || !newAuctionEndDate) {
@@ -243,8 +243,7 @@ const AuctionComponent = () => {
             error={isDateInvalid}
             helperText={isDateInvalid ? "End Date should be in the future" : ""}
           />
-          {createAuctionGasEstimate !== '' &&
-            <div>Estimated gas: {createAuctionGasEstimate.slice(0, 10)}</div>}
+          {createAuctionGasEstimate !== "" && <div>Estimated gas: {createAuctionGasEstimate} ETH</div>}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenNewAuctionModal(false)} color="primary">
