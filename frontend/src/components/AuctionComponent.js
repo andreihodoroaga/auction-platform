@@ -6,6 +6,8 @@ import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
 import AuctionArtifact from "../contracts/Auction.json";
 import auctionHouseAddress from "../contracts/AuctionHouse-address.json";
 import AuctionTable from "./AuctionTableComponent";
+import JSConfetti from "js-confetti";
+
 const toUnixTimestamp = date => new Date(date).getTime() / 1000;
 
 const getAuctionHouseContract = () => {
@@ -112,6 +114,47 @@ const AuctionComponent = () => {
     };
 
     fetchAllAuctions();
+  }, []);
+
+  useEffect(() => {
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const signer = provider.getSigner();
+    const auctionHouseContract = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
+    const processedEvents = new Set();
+
+    const handleAuctionCreated = auctionId => {
+      const uniqueEventId = auctionId.toString();
+      if (!processedEvents.has(uniqueEventId)) {
+        processedEvents.add(uniqueEventId);
+        const jsConfetti = new JSConfetti();
+        jsConfetti.addConfetti();
+      }
+    };
+
+    const startListening = async () => {
+      const blockNumber = await provider.getBlockNumber();
+
+      provider.on("block", async newBlockNumber => {
+        if (newBlockNumber > blockNumber) {
+          const filter = {
+            address: auctionHouseContract.address,
+            topics: [ethers.utils.id("AuctionCreated(uint256,address,string,uint256)")],
+            fromBlock: newBlockNumber,
+          };
+          const logs = await provider.getLogs(filter);
+          logs.forEach(log => {
+            const parsedLog = auctionHouseContract.interface.parseLog(log);
+            handleAuctionCreated(parsedLog.args.auctionId, parsedLog.args.owner, parsedLog.args.name, parsedLog.args.endTime);
+          });
+        }
+      });
+    };
+
+    startListening();
+
+    return () => {
+      provider.removeAllListeners("block");
+    };
   }, []);
 
   // TODO: not working properly

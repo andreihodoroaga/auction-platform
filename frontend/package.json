@@ -8,6 +8,7 @@
     "@mui/material": "^5.15.18",
     "bootstrap": "^4.4.1",
     "ethers": "^5.4.7",
+    "js-confetti": "^0.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
