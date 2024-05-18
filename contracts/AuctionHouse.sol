@@ -65,9 +65,12 @@ contract AuctionHouse {
     }
 
     function endExpiredAuctions() public {
+        console.log("ending auctions");
         for (uint i = 0; i < auctions.length; i++) {
             Auction auction = auctions[i];
             if (block.timestamp >= auction.endTime() && !auction.ended()) {
+                console.log("AuctionHOuse -> Auction address");
+                console.log(address(auction));
                 auction.endAuction();
             }
         }

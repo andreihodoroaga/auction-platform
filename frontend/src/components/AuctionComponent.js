@@ -20,6 +20,7 @@ import {
 
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
+import AuctionArtifact from "../contracts/Auction.json";
 import auctionHouseAddress from "../contracts/AuctionHouse-address.json";
 
 const toUnixTimestamp = date => new Date(date).getTime() / 1000;
@@ -39,6 +40,33 @@ const AuctionComponent = () => {
   const [openBidModal, setOpenBidModal] = useState(false);
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(null);
   const [isEndingAuction, setIsEndingAuction] = useState(false);
+  const [isDateInvalid, setIsDateInvalid] = useState(false);
+  const [isBidInvalid, setIsBidInvalid] = useState(false);
+  const [expiredAuctions, setExpiredAuctions] = useState([]);
+
+  useEffect(() => {
+    async function listenToAuctionEvents() {
+      const auctionHouse = getAuctionHouseContract();
+      const auctions = await auctionHouse.getAllAuctions();
+
+      auctions[0].forEach(async auctionAddress => {
+        console.log("Auction address", auctionAddress);
+        const auctionContract = new ethers.Contract(
+          auctionAddress,
+          AuctionArtifact.abi,
+          new ethers.providers.Web3Provider(window.ethereum)
+        );
+
+        auctionContract.on("AuctionEnded", (winner, amount) => {
+          console.log("AuctionEnded event received for auction:", auctionAddress);
+          console.log("Winner:", winner);
+          console.log("Amount:", amount);
+        });
+      });
+    }
+
+    listenToAuctionEvents();
+  }, []);
 
   useEffect(() => {
     const checkExpiredAuctions = async () => {
@@ -47,9 +75,9 @@ const AuctionComponent = () => {
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const expiredAuctions = auctions.filter(auction => toUnixTimestamp(auction.endTime) < now);
+      const newExpiredAuctions = auctions.filter(auction => toUnixTimestamp(auction.endTime) < now);
 
-      if (expiredAuctions.length > 0) {
+      if (newExpiredAuctions.length > 0) {
         console.log("transaction ended");
         setIsEndingAuction(true);
         const auctionHouse = getAuctionHouseContract();
@@ -61,8 +89,6 @@ const AuctionComponent = () => {
 
     return () => clearInterval(id);
   }, [auctions, isEndingAuction]);
-  const [isDateInvalid, setIsDateInvalid] = useState(false);
-  const [isBidInvalid, setIsBidInvalid] = useState(false);
 
   useEffect(() => {
     const selectedDate = new Date(newAuctionEndDate);

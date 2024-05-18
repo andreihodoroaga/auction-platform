@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+import "hardhat/console.sol";
 
 contract Auction {
     address public owner;
@@ -37,6 +38,8 @@ contract Auction {
         require(block.timestamp >= endTime, "Auction not yet ended.");
         require(!ended, "Auction already ended.");
 
+        console.log("Auction address");
+        console.log(address(this));
         ended = true;
         emit AuctionEnded(highestBidder, highestBid);
 

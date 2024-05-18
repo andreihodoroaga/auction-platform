@@ -24,6 +24,9 @@ async function main() {
   saveContractFrontendFiles(auctionHouse, "AuctionHouse");
 
   await deployOtherContracts();
+
+  const AuctionArtifact = artifacts.readArtifactSync("Auction");
+  saveAbi(AuctionArtifact, "Auction");
 }
 
 async function deployOtherContracts() {
@@ -63,6 +66,16 @@ function saveContractFrontendFiles(contract, contractName) {
   const ContractArtifact = artifacts.readArtifactSync(contractName);
 
   fs.writeFileSync(path.join(contractsDir, `${contractName}.json`), JSON.stringify(ContractArtifact, null, 2));
+}
+
+function saveAbi(artifact, name) {
+  const abiDir = path.join(__dirname, "..", "frontend", "src", "contracts");
+
+  if (!fs.existsSync(abiDir)) {
+    fs.mkdirSync(abiDir);
+  }
+
+  fs.writeFileSync(path.join(abiDir, `${name}.json`), JSON.stringify(artifact, null, 2));
 }
 
 main()
