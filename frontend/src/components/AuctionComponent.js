@@ -18,12 +18,12 @@ import {
   Paper,
 } from "@mui/material";
 
-import { reformatDate } from "../shared/util";
+
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
 import AuctionArtifact from "../contracts/Auction.json";
 import auctionHouseAddress from "../contracts/AuctionHouse-address.json";
-
+import AuctionTable from "./AuctionTableComponent";
 const toUnixTimestamp = date => new Date(date).getTime() / 1000;
 
 const getAuctionHouseContract = () => {
@@ -61,7 +61,7 @@ const AuctionComponent = () => {
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(null);
   const [isEndingAuction, setIsEndingAuction] = useState(false);
   const [isDateInvalid, setIsDateInvalid] = useState(false);
-  const [isBidInvalid, setIsBidInvalid] = useState(false);
+  const [isBidInvalid, setIsBidInvalid] = useState(false)
 
   useEffect(() => {
     const checkExpiredAuctions = async () => {
@@ -209,42 +209,22 @@ const AuctionComponent = () => {
     const value = e.target.value;
     setBidAmount(value);
   };
-
+  console.log(liveAuctions)
   return (
     <Container>
-      <Typography variant="h4" gutterBottom>
-        Auctions
-      </Typography>
       <Button variant="contained" color="primary" onClick={() => setOpenNewAuctionModal(true)}>
         Create New Auction
       </Button>
-      <TableContainer component={Paper} style={{ marginTop: "20px" }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Current Bid</TableCell>
-              <TableCell>End Date</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {liveAuctions.map((auction, index) => (
-              <TableRow key={index}>
-                <TableCell>{auction.name}</TableCell>
-                <TableCell>{auction.highestBid}</TableCell>
-                <TableCell>{reformatDate(auction.endTime.toString())}</TableCell>
-                <TableCell>
-                  <Button variant="contained" color="success" onClick={() => handleOpenBidModal(index)}>
-                    Bid
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
 
+      <AuctionTable
+        auctions={liveAuctions}
+        expired={false}
+        openModal={handleOpenBidModal}
+      />
+      <AuctionTable
+        auctions={expiredAuctions}
+        expired={true}
+      />
       <Dialog open={openNewAuctionModal} onClose={() => setOpenNewAuctionModal(false)}>
         <DialogTitle>Create New Auction</DialogTitle>
         <DialogContent>
