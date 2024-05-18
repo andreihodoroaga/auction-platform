@@ -19,7 +19,7 @@ const AuctionTable = ({ auctions, expired, openModal }) => {
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
-              <TableCell>{expired ? "Final price" : "Curent Bid"}</TableCell>
+              <TableCell>{expired ? "Final price" : "Current Bid"}</TableCell>
               <TableCell>End Date</TableCell>
               <TableCell> {expired ? "Winner" : "Actions"}</TableCell>
             </TableRow>
@@ -28,7 +28,7 @@ const AuctionTable = ({ auctions, expired, openModal }) => {
             {auctions.map((auction, index) => (
               <TableRow key={index}>
                 <TableCell>{auction.name}</TableCell>
-                <TableCell>{auction.highestBid}</TableCell>
+                <TableCell>{auction.highestBid} ETH</TableCell>
                 <TableCell>{reformatDate(auction.endTime.toString())}</TableCell>
                 <TableCell>
                   {!expired ? (
