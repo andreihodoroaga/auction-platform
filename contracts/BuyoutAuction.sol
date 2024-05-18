@@ -12,11 +12,11 @@ contract BuyoutAuction is Auction {
         string memory _name,
         uint _endTime,
         uint _buyoutPrice
-    ) Auction(_name, _endTime, _buyoutPrice) {}
+    ) Auction(_name, _endTime) {}
 
     function buyOutAuction(uint auctionId) external payable {
         require(!ended, "Auction already ended.");
-        require(msg.value == buyoutPrice, "Incorrect buyout price");
+        // require(msg.value == buyoutPrice, "Incorrect buyout price");
         require(!auctionBoughtOut[auctionId], "Auction already bought out");
 
         ended = true;

@@ -37,7 +37,7 @@ async function deployOtherContracts() {
 
   for (const file of contractFiles) {
     const contractName = file.replace(".sol", "");
-    if (contractName === "AuctionHouse" || contractName === "Auction") {
+    if (contractName === "AuctionHouse" || contractName === "Auction" || contractName === "BuyoutAuction") {
       continue;
     }
 

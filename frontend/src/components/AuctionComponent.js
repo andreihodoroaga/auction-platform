@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Container, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from "@mui/material";
+import Snackbar from '@mui/material/Snackbar';
+import MuiAlert from '@mui/material/Alert';
 
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
@@ -40,6 +42,20 @@ const getAuctionContract = (auctionAddress, requiresSigner = false) => {
   return new ethers.Contract(auctionAddress, AuctionArtifact.abi, providerOrSigner);
 };
 
+const Alert = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
+
+const SnackbarAlert = ({ open, onClose, severity, message }) => {
+  return (
+    <Snackbar open={open} autoHideDuration={6000} onClose={onClose}>
+      <Alert onClose={onClose} severity={severity} sx={{ width: '100%' }}>
+        {message}
+      </Alert>
+    </Snackbar>
+  );
+};
+
 const AuctionComponent = () => {
   const [liveAuctions, setLiveAuctions] = useState([]);
   const [expiredAuctions, setExpiredAuctions] = useState([]);
@@ -52,6 +68,10 @@ const AuctionComponent = () => {
   const [isDateInvalid, setIsDateInvalid] = useState(false);
   const [isBidInvalid, setIsBidInvalid] = useState(false);
   const [createAuctionGasEstimate, setCreateAuctionGasEstimate] = useState("");
+  const [bidGasEstimate, setBidGasEstimate] = useState("");
+  const addAuctionGasLimit = "0.00000000001";    
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     const checkExpiredAuctions = async () => {
@@ -109,7 +129,9 @@ const AuctionComponent = () => {
         const auctions = await getAuctions();
         handleSetAuctions(auctions);
       } catch (error) {
-        console.error("Error fetching auctions:", error);
+        console.error("Error fetching auctions:");
+        setSnackbarMessage("Error creating auction: " + error.message);
+        setOpenSnackbar(true);
       }
     };
 
@@ -193,31 +215,57 @@ const AuctionComponent = () => {
     };
     estimateGas().catch(console.error);
   }, [newAuctionEndDate, newAuctionName]);
-  //  console.log(createAuctionGasEstimate)
+
+  useEffect(() => {
+
+    const estimateGas = async () => {
+      const auctionContract = getAuctionContract(openBidModal.address, true);
+      if (bidAmount !== "") {
+        const bidAmountInWei = ethers.utils.parseEther(bidAmount);
+
+        const gasEstimate = await auctionContract.estimateGas.bid({
+          value: bidAmountInWei,
+        });
+
+        setBidGasEstimate(ethers.utils.formatEther(gasEstimate.toString()).toString());
+        console.log(gasEstimate)
+      }
+    };
+    if (openBidModal) {
+      estimateGas().catch(console.error);
+    }
+  }, [bidAmount]);
+
+
   const handleAddAuction = async () => {
     if (!newAuctionName || !newAuctionEndDate) {
       console.error("Auction name and end date are required");
       return;
     }
-
+  
     const endDateTimestamp = Math.floor(new Date(newAuctionEndDate).getTime() / 1000);
     setOpenNewAuctionModal(false);
     setCreateAuctionGasEstimate("");
     try {
       const auctionHouse = getAuctionHouseContract();
+      const gasLimitWei = ethers.utils.parseUnits(addAuctionGasLimit.toString(), 'ether');
 
-      const tx = await auctionHouse.createAuction(newAuctionName, endDateTimestamp);
+      const tx = await auctionHouse.createAuction(newAuctionName, endDateTimestamp, {
+        gasLimit: gasLimitWei
+      });
       await tx.wait();
-
+  
       const auctions = await getAuctions();
       handleSetAuctions(auctions);
-
+  
       setNewAuctionName("");
       setNewAuctionEndDate("");
-
+  
       console.log("Auction created successfully!");
     } catch (error) {
       console.error("Error creating auction:", error);
+      setSnackbarMessage("Error creating auction: " + error.message);
+      setOpenSnackbar(true);
     }
   };
 
@@ -240,6 +288,8 @@ const AuctionComponent = () => {
       setOpenBidModal(null);
     } catch (error) {
       console.error("Error creating bid:", error);
+      setSnackbarMessage("Error creating auction: " + error.message);
+      setOpenSnackbar(true);
     }
   };
 
@@ -251,6 +301,10 @@ const AuctionComponent = () => {
   const handleBidAmountChange = e => {
     const value = e.target.value;
     setBidAmount(value);
+  };
+
+  const handleSnackbarClose = () => {
+    setOpenSnackbar(false);
   };
 
   return (
@@ -286,6 +340,14 @@ const AuctionComponent = () => {
             error={isDateInvalid}
             helperText={isDateInvalid ? "End Date should be in the future" : ""}
           />
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Buyout Price"
+            type="number"
+            fullWidth
+          />
+          {<div>Gas limit: {addAuctionGasLimit} ETH</div>}
           {createAuctionGasEstimate !== "" && <div>Estimated gas: {createAuctionGasEstimate} ETH</div>}
         </DialogContent>
         <DialogActions>
@@ -317,6 +379,7 @@ const AuctionComponent = () => {
             error={isBidInvalid}
             helperText={isBidInvalid ? "Please enter your bid amount. It must be greater than the current bid!" : ""}
           />
+          {bidGasEstimate !== "" && <div>Estimated gas: {bidGasEstimate} ETH</div>}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenBidModal(null)} color="primary">
@@ -327,6 +390,12 @@ const AuctionComponent = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <SnackbarAlert
+        open={openSnackbar}
+        onClose={handleSnackbarClose}
+        severity={'error'}
+        message={snackbarMessage}
+      />
     </Container>
   );
 };
