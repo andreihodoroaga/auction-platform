@@ -21,6 +21,9 @@ import {
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
 import auctionHouseAddress from "../contracts/AuctionHouse-address.json";
+import AuctionArtifact from '../contracts/Auction.json';
+import auctionAddress from '../contracts/Auction-address.json'
+
 
 const AuctionComponent = () => {
   const [auctions, setAuctions] = useState([]);
@@ -30,6 +33,34 @@ const AuctionComponent = () => {
   const [openNewAuctionModal, setOpenNewAuctionModal] = useState(false);
   const [openBidModal, setOpenBidModal] = useState(false);
   const [currentAuctionIndex, setCurrentAuctionIndex] = useState(null);
+  const [isDateInvalid, setIsDateInvalid] = useState(false);
+  const [isBidInvalid, setIsBidInvalid] = useState(false);
+
+
+  useEffect(() => {
+    const selectedDate = new Date(newAuctionEndDate);
+    const currentDate = new Date();
+    if (newAuctionEndDate != "") {
+      if (selectedDate.getTime() > currentDate.getTime()) {
+        setIsDateInvalid(false);
+      } else {
+        setIsDateInvalid(true);
+      }
+    }
+  }, [newAuctionEndDate])
+
+
+  useEffect(() => {
+    const currentBidAmount = auctions[currentAuctionIndex]?.highestBid;
+
+    if (bidAmount != "") {
+      if (bidAmount > currentBidAmount) {
+        setIsBidInvalid(false)
+      } else {
+        setIsBidInvalid(true)
+      }
+    }
+  }, [bidAmount])
 
   useEffect(() => {
     const fetchAllAuctions = async () => {
@@ -93,14 +124,26 @@ const AuctionComponent = () => {
       console.error("Error creating auction:", error);
     }
   };
-  const handleBid = () => {
-    const updatedAuctions = auctions.map((auction, i) =>
-      i === currentAuctionIndex ? { ...auction, bidAmount: parseFloat(bidAmount) } : auction
-    );
-    setAuctions(updatedAuctions);
-    setBidAmount("");
-    setOpenBidModal(false);
-  };
+  // const handleBid = async () => {
+  //   try {
+  //     const provider = new ethers.providers.Web3Provider(window.ethereum);
+  //     const signer = provider.getSigner();
+  //     const auctionHouse = new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
+
+
+  //     const auction = new ethers.Contract(auctionAddress.address, AuctionArtifact.abi, signer);
+  //     const updatedAuctions = auctions.map((auction, i) =>
+  //       i === currentAuctionIndex ? { ...auction, highestBid: parseFloat(bidAmount) } : auction
+  //     );
+  //     setAuctions(updatedAuctions);
+  //     auction.bid();
+  //     setBidAmount("");
+  //     setOpenBidModal(false);
+  //     console.log("Bid created successfully!");
+  //   } catch (error) {
+  //     console.error("Error creating bid:", error);
+  //   }
+  // };
 
   const handleOpenBidModal = index => {
     setCurrentAuctionIndex(index);
@@ -112,11 +155,27 @@ const AuctionComponent = () => {
     setBidAmount(value);
   };
 
-  const isBidValid = () => {
-    const currentBidAmount = auctions[currentAuctionIndex]?.bidAmount;
-    return !isNaN(bidAmount) && parseFloat(bidAmount) > currentBidAmount;
-  };
 
+
+  const reformatDate = (dateString) => {
+    const date = new Date(dateString);
+
+    const dateOptions = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    };
+
+    const timeOptions = {
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+
+    const formattedDate = date.toLocaleDateString('en-US', dateOptions);
+    const formattedTime = date.toLocaleTimeString('en-US', timeOptions);
+
+    return `${formattedDate} ${formattedTime}`;
+  };
   return (
     <Container>
       <Typography variant="h4" gutterBottom>
@@ -139,8 +198,8 @@ const AuctionComponent = () => {
             {auctions.map((auction, index) => (
               <TableRow key={index}>
                 <TableCell>{auction.name}</TableCell>
-                <TableCell>${auction.bidAmount}</TableCell>
-                <TableCell>{auction.endDate}</TableCell>
+                <TableCell>{auction.highestBid}</TableCell>
+                <TableCell>{reformatDate(auction.endTime.toString())}</TableCell>
                 <TableCell>
                   <Button variant="contained" color="success" onClick={() => handleOpenBidModal(index)}>
                     Bid
@@ -173,13 +232,15 @@ const AuctionComponent = () => {
             InputLabelProps={{ shrink: true }}
             value={newAuctionEndDate}
             onChange={e => setNewAuctionEndDate(e.target.value)}
+            error={isDateInvalid}
+            helperText={isDateInvalid ? "End Date should be in the future" : ""}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenNewAuctionModal(false)} color="primary">
             Cancel
           </Button>
-          <Button onClick={handleAddAuction} color="primary" disabled={!newAuctionName.trim() || !newAuctionEndDate.trim()}>
+          <Button onClick={handleAddAuction} color="primary" disabled={!newAuctionName.trim() || !newAuctionEndDate.trim() || isDateInvalid}>
             Create
           </Button>
         </DialogActions>
@@ -187,16 +248,25 @@ const AuctionComponent = () => {
 
       {/* Bid Modal */}
       <Dialog open={openBidModal} onClose={() => setOpenBidModal(false)}>
-        <DialogTitle>Place a Bid</DialogTitle>
         <DialogContent>
-          <DialogContentText>Please enter your bid amount. It must be greater than the current bid.</DialogContentText>
-          <TextField autoFocus margin="dense" label="Bid Amount" type="text" fullWidth value={bidAmount} onChange={handleBidAmountChange} />
+          <DialogContentText></DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Bid Amount"
+            type="number"
+            fullWidth
+            value={bidAmount}
+            onChange={handleBidAmountChange}
+            error={isBidInvalid}
+            helperText={isBidInvalid ? "Please enter your bid amount. It must be greater than the current bid!" : ""}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenBidModal(false)} color="primary">
             Cancel
           </Button>
-          <Button onClick={handleBid} color="primary" disabled={!isBidValid()}>
+          <Button onClick={handleBid} color="primary" disabled={isBidInvalid}>
             Place Bid
           </Button>
         </DialogActions>
