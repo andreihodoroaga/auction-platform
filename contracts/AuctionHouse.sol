@@ -18,6 +18,7 @@ contract AuctionHouse {
     }
 
     function getAuction(uint auctionId) external view returns (
+        address addr,
         address owner,
         string memory name,
         uint endTime,
@@ -34,6 +35,7 @@ contract AuctionHouse {
     }
 
     function getAllAuctions() external view returns (
+        address[] memory addresses,
         address[] memory owners,
         string[] memory names,
         uint[] memory endTimes,
@@ -43,6 +45,7 @@ contract AuctionHouse {
     ) {
         uint count = auctions.length;
 
+        address[] memory _addresses = new address[](count);
         address[] memory _owners = new address[](count);
         string[] memory _names = new string[](count);
         uint[] memory _endTimes = new uint[](count);
@@ -50,8 +53,9 @@ contract AuctionHouse {
         address[] memory _highestBidders = new address[](count);
         bool[] memory _endeds = new bool[](count);
 
-        for (uint i = 0; i < count; i++) {
+        for (uint i = 0; i < count; i++) {            
             (
+                _addresses[i],
                 _owners[i],
                 _names[i],
                 _endTimes[i],
@@ -61,11 +65,10 @@ contract AuctionHouse {
             ) = _getAuctionDetails(auctions[i]);
         }
 
-        return (_owners, _names, _endTimes, _highestBids, _highestBidders, _endeds);
+        return (_addresses, _owners, _names, _endTimes, _highestBids, _highestBidders, _endeds);
     }
 
     function endExpiredAuctions() public {
-        console.log("ending auctions");
         for (uint i = 0; i < auctions.length; i++) {
             Auction auction = auctions[i];
             if (block.timestamp >= auction.endTime() && !auction.ended()) {
@@ -77,6 +80,7 @@ contract AuctionHouse {
     }
 
     function _getAuctionDetails(Auction auction) internal view returns (
+        address addr,
         address _owner,
         string memory _name,
         uint _endTime,
@@ -85,6 +89,7 @@ contract AuctionHouse {
         bool _ended
     ) {
         return (
+            auction.getAddr(),
             auction.owner(),
             auction.name(),
             auction.endTime(),

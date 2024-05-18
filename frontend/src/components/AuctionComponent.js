@@ -18,6 +18,7 @@ import {
   Paper,
 } from "@mui/material";
 
+import { reformatDate } from "../shared/util";
 import { ethers } from "ethers";
 import AuctionHouseArtifact from "../contracts/AuctionHouse.json";
 import AuctionArtifact from "../contracts/Auction.json";
@@ -31,8 +32,27 @@ const getAuctionHouseContract = () => {
   return new ethers.Contract(auctionHouseAddress.address, AuctionHouseArtifact.abi, signer);
 };
 
+const getAuctionsDetails = auctionHouseActions => {
+  return auctionHouseActions[0].map((_, index) => ({
+    address: auctionHouseActions[0][index],
+    owner: auctionHouseActions[1][index],
+    name: auctionHouseActions[2][index],
+    endTime: new Date(auctionHouseActions[3][index] * 1000), // Convert UNIX timestamp to date
+    highestBid: ethers.utils.formatEther(auctionHouseActions[4][index]), // Convert wei to ether
+    highestBidder: auctionHouseActions[5][index],
+    ended: auctionHouseActions[6][index],
+  }));
+};
+
+const getAuctions = async () => {
+  const auctionHouse = getAuctionHouseContract();
+  const auctionsFromContract = await auctionHouse.getAllAuctions();
+  return getAuctionsDetails(auctionsFromContract);
+};
+
 const AuctionComponent = () => {
-  const [auctions, setAuctions] = useState([]);
+  const [liveAuctions, setLiveAuctions] = useState([]);
+  const [expiredAuctions, setExpiredAuctions] = useState([]);
   const [newAuctionName, setNewAuctionName] = useState("");
   const [newAuctionEndDate, setNewAuctionEndDate] = useState("");
   const [bidAmount, setBidAmount] = useState("");
@@ -42,15 +62,77 @@ const AuctionComponent = () => {
   const [isEndingAuction, setIsEndingAuction] = useState(false);
   const [isDateInvalid, setIsDateInvalid] = useState(false);
   const [isBidInvalid, setIsBidInvalid] = useState(false);
-  const [expiredAuctions, setExpiredAuctions] = useState([]);
 
+  useEffect(() => {
+    const checkExpiredAuctions = async () => {
+      if (isEndingAuction) {
+        return;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const newExpiredAuctions = liveAuctions.filter(auction => toUnixTimestamp(auction.endTime) < now);
+
+      if (newExpiredAuctions.length > 0) {
+        setIsEndingAuction(true);
+        const auctionHouse = getAuctionHouseContract();
+        const tx = await auctionHouse.endExpiredAuctions();
+        await tx.wait();
+        const auctions = await getAuctions();
+        handleSetAuctions(auctions);
+        setIsEndingAuction(false);
+      }
+    };
+
+    const id = setInterval(checkExpiredAuctions, 1000);
+
+    return () => clearInterval(id);
+  }, [liveAuctions, isEndingAuction]);
+
+  useEffect(() => {
+    const selectedDate = new Date(newAuctionEndDate);
+    const currentDate = new Date();
+    if (newAuctionEndDate !== "") {
+      if (selectedDate.getTime() > currentDate.getTime()) {
+        setIsDateInvalid(false);
+      } else {
+        setIsDateInvalid(true);
+      }
+    }
+  }, [newAuctionEndDate]);
+
+  useEffect(() => {
+    const currentBidAmount = liveAuctions[currentAuctionIndex]?.highestBid;
+
+    if (bidAmount !== "") {
+      if (bidAmount > currentBidAmount) {
+        setIsBidInvalid(false);
+      } else {
+        setIsBidInvalid(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bidAmount]);
+
+  useEffect(() => {
+    const fetchAllAuctions = async () => {
+      try {
+        const auctions = await getAuctions();
+        handleSetAuctions(auctions);
+      } catch (error) {
+        console.error("Error fetching auctions:", error);
+      }
+    };
+
+    fetchAllAuctions();
+  }, []);
+
+  // TODO: not working properly
   useEffect(() => {
     async function listenToAuctionEvents() {
       const auctionHouse = getAuctionHouseContract();
       const auctions = await auctionHouse.getAllAuctions();
 
       auctions[0].forEach(async auctionAddress => {
-        console.log("Auction address", auctionAddress);
         const auctionContract = new ethers.Contract(
           auctionAddress,
           AuctionArtifact.abi,
@@ -66,76 +148,12 @@ const AuctionComponent = () => {
     }
 
     listenToAuctionEvents();
-  }, []);
+  }, [expiredAuctions]);
 
-  useEffect(() => {
-    const checkExpiredAuctions = async () => {
-      if (isEndingAuction) {
-        return;
-      }
-
-      const now = Math.floor(Date.now() / 1000);
-      const newExpiredAuctions = auctions.filter(auction => toUnixTimestamp(auction.endTime) < now);
-
-      if (newExpiredAuctions.length > 0) {
-        console.log("transaction ended");
-        setIsEndingAuction(true);
-        const auctionHouse = getAuctionHouseContract();
-        await auctionHouse.endExpiredAuctions();
-      }
-    };
-
-    const id = setInterval(checkExpiredAuctions, 1000);
-
-    return () => clearInterval(id);
-  }, [auctions, isEndingAuction]);
-
-  useEffect(() => {
-    const selectedDate = new Date(newAuctionEndDate);
-    const currentDate = new Date();
-    if (newAuctionEndDate !== "") {
-      if (selectedDate.getTime() > currentDate.getTime()) {
-        setIsDateInvalid(false);
-      } else {
-        setIsDateInvalid(true);
-      }
-    }
-  }, [newAuctionEndDate]);
-
-  useEffect(() => {
-    const currentBidAmount = auctions[currentAuctionIndex]?.highestBid;
-
-    if (bidAmount !== "") {
-      if (bidAmount > currentBidAmount) {
-        setIsBidInvalid(false);
-      } else {
-        setIsBidInvalid(true);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bidAmount]);
-
-  useEffect(() => {
-    const fetchAllAuctions = async () => {
-      try {
-        const auctionHouse = getAuctionHouseContract();
-        const auctions = await auctionHouse.getAllAuctions();
-        const auctionDetails = auctions[0].map((_, index) => ({
-          owner: auctions[0][index],
-          name: auctions[1][index],
-          endTime: new Date(auctions[2][index] * 1000), // Convert UNIX timestamp to date
-          highestBid: ethers.utils.formatEther(auctions[3][index]), // Convert wei to ether
-          highestBidder: auctions[4][index],
-          ended: auctions[5][index],
-        }));
-        setAuctions(auctionDetails);
-      } catch (error) {
-        console.error("Error fetching auctions:", error);
-      }
-    };
-
-    fetchAllAuctions();
-  }, []);
+  const handleSetAuctions = auctions => {
+    setLiveAuctions(auctions.filter(auction => !auction.ended));
+    setExpiredAuctions(auctions.filter(auction => auction.ended));
+  };
 
   const handleAddAuction = async () => {
     if (!newAuctionName || !newAuctionEndDate) {
@@ -151,17 +169,8 @@ const AuctionComponent = () => {
       const tx = await auctionHouse.createAuction(newAuctionName, endDateTimestamp);
       await tx.wait();
 
-      const auctions = await auctionHouse.getAllAuctions();
-      const auctionDetails = auctions[0].map((_, index) => ({
-        owner: auctions[0][index],
-        name: auctions[1][index],
-        endTime: new Date(auctions[2][index] * 1000), // Convert UNIX timestamp to date
-        highestBid: ethers.utils.formatEther(auctions[3][index]), // Convert wei to ether
-        highestBidder: auctions[4][index],
-        ended: auctions[5][index],
-      }));
-
-      setAuctions(auctionDetails);
+      const auctions = await getAuctions();
+      handleSetAuctions(auctions);
 
       setNewAuctionName("");
       setNewAuctionEndDate("");
@@ -201,25 +210,6 @@ const AuctionComponent = () => {
     setBidAmount(value);
   };
 
-  const reformatDate = dateString => {
-    const date = new Date(dateString);
-
-    const dateOptions = {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    };
-
-    const timeOptions = {
-      hour: "2-digit",
-      minute: "2-digit",
-    };
-
-    const formattedDate = date.toLocaleDateString("en-US", dateOptions);
-    const formattedTime = date.toLocaleTimeString("en-US", timeOptions);
-
-    return `${formattedDate} ${formattedTime}`;
-  };
   return (
     <Container>
       <Typography variant="h4" gutterBottom>
@@ -239,7 +229,7 @@ const AuctionComponent = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {auctions.map((auction, index) => (
+            {liveAuctions.map((auction, index) => (
               <TableRow key={index}>
                 <TableCell>{auction.name}</TableCell>
                 <TableCell>{auction.highestBid}</TableCell>
