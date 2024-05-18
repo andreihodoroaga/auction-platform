@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from "react";
 import {
     Container,
     Typography,
@@ -9,17 +10,11 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
-    TextField,
     Paper,
 } from "@mui/material";
 import { reformatDate } from "../shared/util";
 const AuctionTable = ({ auctions, expired, openModal }) => {
-
+    const [showFullAddress, setShowFullAddress] = useState(false);
     return (
         <>
             {!expired ?
@@ -35,9 +30,9 @@ const AuctionTable = ({ auctions, expired, openModal }) => {
                     <TableHead>
                         <TableRow>
                             <TableCell>Name</TableCell>
-                            <TableCell>Current Bid</TableCell>
+                            <TableCell>{expired ? "Final price" : "Curent Bid"}</TableCell>
                             <TableCell>End Date</TableCell>
-                            <TableCell>Actions</TableCell>
+                            <TableCell> {expired ? "Winner" : "Actions"}</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -47,21 +42,29 @@ const AuctionTable = ({ auctions, expired, openModal }) => {
                                 <TableCell>{auction.highestBid}</TableCell>
                                 <TableCell>{reformatDate(auction.endTime.toString())}</TableCell>
                                 <TableCell>
-                                    {!expired && <Button
-                                        variant="contained"
-                                        color="success"
-                                        onClick={() => openModal(index)}>
-                                        Bid
-                                    </Button>}
-                                    {expired &&
-                                        <div>Expired</div>
-                                    }
+                                    {!expired ? (
+                                        <Button
+                                            variant="contained"
+                                            color="success"
+                                            onClick={() => openModal(index)}
+                                        >
+                                            Bid
+                                        </Button>
+                                    ) : (
+                                        <>
+                                            {showFullAddress ? auction.highestBidder : `${auction.highestBidder.slice(0, 6)}...`}
+                                            <span onClick={() => setShowFullAddress(!showFullAddress)} style={{ minWidth: '30px', padding: '2px 5px', fontSize: '0.7em' }} >
+                                                {showFullAddress ? "Show less" : "Show more"}
+                                            </span>
+                                        </>
+                                    )}
                                 </TableCell>
+
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
-            </TableContainer>
+            </TableContainer >
 
 
         </>
