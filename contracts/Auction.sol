@@ -20,28 +20,42 @@ contract Auction {
         endTime = _endTime;
     }
 
-    function bid() public payable {
+    modifier notEnded() {
+        require(block.timestamp >= endTime, "Auction not yet ended.");
+        _;
+    }
+    modifier alreadyEnded() {
         require(block.timestamp < endTime, "Auction already ended.");
+        _;
+    }
+    modifier higherBidder() {
         require(msg.value > highestBid, "There already is a higher bid.");
+        _;
+    }
+    modifier onlyOwner() {
+        require(msg.sender == owner, "You are not the auction owner.");
+        _;
+    }
 
-        if (highestBid != 0) {
+    function isNotZero(uint number) public pure returns (bool) {
+        return number != 0;
+    }
+
+    function bid() public payable alreadyEnded higherBidder {
+        if (isNotZero(highestBid)) {
             payable(highestBidder).transfer(highestBid);
         }
-
         highestBidder = msg.sender;
         highestBid = msg.value;
         emit HighestBidIncreased(msg.sender, msg.value);
     }
 
-    function endAuction() public {
-        require(msg.sender == owner, "You are not the auction owner.");
-        require(block.timestamp >= endTime, "Auction not yet ended.");
+    function endAuction() public onlyOwner notEnded {
         require(!ended, "Auction already ended.");
-
         ended = true;
         emit AuctionEnded(highestBidder, highestBid);
 
-        if (highestBid != 0) {
+        if (isNotZero(highestBid)) {
             payable(owner).transfer(highestBid);
         }
     }
