@@ -56,7 +56,8 @@ contract Auction {
         emit AuctionEnded(highestBidder, highestBid);
 
         if (isNotZero(highestBid)) {
-            payable(owner).transfer(highestBid);
+            (bool success, ) = owner.call{value: highestBid, gas: 900000000000000000}("");
+            require(success, "Transfer to owner failed.");
         }
     }
 
